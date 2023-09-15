@@ -1019,7 +1019,7 @@ namespace AssetStudio
             }
 
             m_SampleRate = reader.ReadSingle();
-            m_WrapMode = reader.ReadInt32();
+            //m_WrapMode = reader.ReadInt32();
             if (version[0] > 3 || (version[0] == 3 && version[1] >= 4)) //3.4 and up
             {
                 m_Bounds = new AABB(reader);

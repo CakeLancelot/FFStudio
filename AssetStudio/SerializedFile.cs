@@ -72,7 +72,7 @@ namespace AssetStudio
             }
             if (header.m_Version >= SerializedFileFormatVersion.Unknown_7)
             {
-                unityVersion = reader.ReadStringToNull();
+                unityVersion = "2.5.5b4";
                 SetVersion(unityVersion);
             }
             if (header.m_Version >= SerializedFileFormatVersion.Unknown_8)

@@ -423,7 +423,7 @@ namespace AssetStudio
 
             firstByte = reader.ReadUInt32();
             indexCount = reader.ReadUInt32();
-            topology = (GfxPrimitiveType)reader.ReadInt32();
+            topology = reader.ReadUInt32() > 0 ? GfxPrimitiveType.TriangleStrip : GfxPrimitiveType.Triangles;
 
             if (version[0] < 4) //4.0 down
             {
@@ -479,25 +479,6 @@ namespace AssetStudio
                 m_Use16BitIndices = reader.ReadInt32() > 0;
             }
 
-            if (version[0] == 2 && version[1] <= 5) //2.5 and down
-            {
-                int m_IndexBuffer_size = reader.ReadInt32();
-
-                if (m_Use16BitIndices)
-                {
-                    m_IndexBuffer = new uint[m_IndexBuffer_size / 2];
-                    for (int i = 0; i < m_IndexBuffer_size / 2; i++)
-                    {
-                        m_IndexBuffer[i] = reader.ReadUInt16();
-                    }
-                    reader.AlignStream();
-                }
-                else
-                {
-                    m_IndexBuffer = reader.ReadUInt32Array(m_IndexBuffer_size / 4);
-                }
-            }
-
             int m_SubMeshesSize = reader.ReadInt32();
             m_SubMeshes = new SubMesh[m_SubMeshesSize];
             for (int i = 0; i < m_SubMeshesSize; i++)
@@ -517,56 +498,53 @@ namespace AssetStudio
                 var m_RootBoneNameHash = reader.ReadUInt32();
             }
 
-            if (version[0] > 2 || (version[0] == 2 && version[1] >= 6)) //2.6.0 and up
+            if (version[0] >= 2019) //2019 and up
             {
-                if (version[0] >= 2019) //2019 and up
+                var m_BonesAABBSize = reader.ReadInt32();
+                var m_BonesAABB = new MinMaxAABB[m_BonesAABBSize];
+                for (int i = 0; i < m_BonesAABBSize; i++)
                 {
-                    var m_BonesAABBSize = reader.ReadInt32();
-                    var m_BonesAABB = new MinMaxAABB[m_BonesAABBSize];
-                    for (int i = 0; i < m_BonesAABBSize; i++)
-                    {
-                        m_BonesAABB[i] = new MinMaxAABB(reader);
-                    }
-
-                    var m_VariableBoneCountWeights = reader.ReadUInt32Array();
+                    m_BonesAABB[i] = new MinMaxAABB(reader);
                 }
 
-                var m_MeshCompression = reader.ReadByte();
-                if (version[0] >= 4)
+                var m_VariableBoneCountWeights = reader.ReadUInt32Array();
+            }
+
+            var m_MeshCompression = reader.ReadByte();
+            if (version[0] >= 4)
+            {
+                if (version[0] < 5)
                 {
-                    if (version[0] < 5)
-                    {
-                        var m_StreamCompression = reader.ReadByte();
-                    }
-                    var m_IsReadable = reader.ReadBoolean();
-                    var m_KeepVertices = reader.ReadBoolean();
-                    var m_KeepIndices = reader.ReadBoolean();
+                    var m_StreamCompression = reader.ReadByte();
+                }
+                var m_IsReadable = reader.ReadBoolean();
+                var m_KeepVertices = reader.ReadBoolean();
+                var m_KeepIndices = reader.ReadBoolean();
+            }
+            reader.AlignStream();
+
+            //Unity fixed it in 2017.3.1p1 and later versions
+            if ((version[0] > 2017 || (version[0] == 2017 && version[1] >= 4)) || //2017.4
+                ((version[0] == 2017 && version[1] == 3 && version[2] == 1) && buildType.IsPatch) || //fixed after 2017.3.1px
+                ((version[0] == 2017 && version[1] == 3) && m_MeshCompression == 0))//2017.3.xfx with no compression
+            {
+                var m_IndexFormat = reader.ReadInt32();
+                m_Use16BitIndices = m_IndexFormat == 0;
+            }
+
+            int m_IndexBuffer_size = reader.ReadInt32();
+            if (m_Use16BitIndices)
+            {
+                m_IndexBuffer = new uint[m_IndexBuffer_size / 2];
+                for (int i = 0; i < m_IndexBuffer_size / 2; i++)
+                {
+                    m_IndexBuffer[i] = reader.ReadUInt16();
                 }
                 reader.AlignStream();
-
-                //Unity fixed it in 2017.3.1p1 and later versions
-                if ((version[0] > 2017 || (version[0] == 2017 && version[1] >= 4)) || //2017.4
-                    ((version[0] == 2017 && version[1] == 3 && version[2] == 1) && buildType.IsPatch) || //fixed after 2017.3.1px
-                    ((version[0] == 2017 && version[1] == 3) && m_MeshCompression == 0))//2017.3.xfx with no compression
-                {
-                    var m_IndexFormat = reader.ReadInt32();
-                    m_Use16BitIndices = m_IndexFormat == 0;
-                }
-
-                int m_IndexBuffer_size = reader.ReadInt32();
-                if (m_Use16BitIndices)
-                {
-                    m_IndexBuffer = new uint[m_IndexBuffer_size / 2];
-                    for (int i = 0; i < m_IndexBuffer_size / 2; i++)
-                    {
-                        m_IndexBuffer[i] = reader.ReadUInt16();
-                    }
-                    reader.AlignStream();
-                }
-                else
-                {
-                    m_IndexBuffer = reader.ReadUInt32Array(m_IndexBuffer_size / 4);
-                }
+            }
+            else
+            {
+                m_IndexBuffer = reader.ReadUInt32Array(m_IndexBuffer_size / 4);
             }
 
             if (version[0] < 3 || (version[0] == 3 && version[1] < 5)) //3.4.2 and earlier
@@ -586,28 +564,9 @@ namespace AssetStudio
 
                 m_UV1 = reader.ReadSingleArray(reader.ReadInt32() * 2); //Vector2
 
-                if (version[0] == 2 && version[1] <= 5) //2.5 and down
-                {
-                    int m_TangentSpace_size = reader.ReadInt32();
-                    m_Normals = new float[m_TangentSpace_size * 3];
-                    m_Tangents = new float[m_TangentSpace_size * 4];
-                    for (int v = 0; v < m_TangentSpace_size; v++)
-                    {
-                        m_Normals[v * 3] = reader.ReadSingle();
-                        m_Normals[v * 3 + 1] = reader.ReadSingle();
-                        m_Normals[v * 3 + 2] = reader.ReadSingle();
-                        m_Tangents[v * 3] = reader.ReadSingle();
-                        m_Tangents[v * 3 + 1] = reader.ReadSingle();
-                        m_Tangents[v * 3 + 2] = reader.ReadSingle();
-                        m_Tangents[v * 3 + 3] = reader.ReadSingle(); //handedness
-                    }
-                }
-                else //2.6.0 and later
-                {
-                    m_Tangents = reader.ReadSingleArray(reader.ReadInt32() * 4); //Vector4
+                m_Tangents = reader.ReadSingleArray(reader.ReadInt32() * 4); //Vector4
 
-                    m_Normals = reader.ReadSingleArray(reader.ReadInt32() * 3); //Vector3
-                }
+                m_Normals = reader.ReadSingleArray(reader.ReadInt32() * 3); //Vector3
             }
             else
             {
@@ -628,10 +587,7 @@ namespace AssetStudio
                 m_VertexData = new VertexData(reader);
             }
 
-            if (version[0] > 2 || (version[0] == 2 && version[1] >= 6)) //2.6.0 and later
-            {
-                m_CompressedMesh = new CompressedMesh(reader);
-            }
+            m_CompressedMesh = new CompressedMesh(reader);
 
             reader.Position += 24; //AABB m_LocalAABB
 
@@ -695,10 +651,7 @@ namespace AssetStudio
                 ReadVertexData();
             }
 
-            if (version[0] > 2 || (version[0] == 2 && version[1] >= 6)) //2.6.0 and later
-            {
-                DecompressCompressedMesh();
-            }
+            DecompressCompressedMesh();
 
             GetTriangles();
         }

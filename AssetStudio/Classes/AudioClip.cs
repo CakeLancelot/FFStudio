@@ -35,10 +35,11 @@ namespace AssetStudio
         {
             if (version[0] < 5)
             {
-                m_Format = reader.ReadInt32();
                 m_Type = (FMODSoundType)reader.ReadInt32();
-                m_3D = reader.ReadBoolean();
-                m_UseHardware = reader.ReadBoolean();
+                m_Length = reader.ReadSingle();
+                m_Frequency = reader.ReadInt32();
+                m_Size = reader.ReadInt32();
+                var m_DecompressOnLoad = reader.ReadBoolean();
                 reader.AlignStream();
 
                 if (version[0] >= 4 || (version[0] == 3 && version[1] >= 2)) //3.2.0 to 5

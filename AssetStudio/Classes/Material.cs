@@ -13,6 +13,8 @@ namespace AssetStudio
             m_Texture = new PPtr<Texture>(reader);
             m_Scale = reader.ReadVector2();
             m_Offset = reader.ReadVector2();
+            var m_Pivot = reader.ReadVector2();
+            var m_Rotation = reader.ReadSingle();
         }
     }
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 
 namespace AssetStudio
 {
@@ -12,8 +13,11 @@ namespace AssetStudio
 
         public PPtr(ObjectReader reader)
         {
-            m_FileID = reader.ReadInt32();
-            m_PathID = reader.m_Version < SerializedFileFormatVersion.Unknown_14 ? reader.ReadInt32() : reader.ReadInt64();
+            var buffer = (new byte[8]);
+            reader.Read(buffer, 0, buffer.Length);
+
+            m_FileID = BinaryPrimitives.ReadInt16LittleEndian(buffer);
+            m_PathID = ((long)BinaryPrimitives.ReadUInt16LittleEndian(buffer.AsSpan(2)) << 32) | BinaryPrimitives.ReadUInt32LittleEndian(buffer.AsSpan(4));
             assetsFile = reader.assetsFile;
         }
 
